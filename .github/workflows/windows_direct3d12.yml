@@ -20,4 +20,21 @@ jobs:
     - name: Compile
       run: |
         cd armorpaint
-        ../armorcore/Kinc/make --from ../armorcore -g direct3d12
+        ../armorcore/Kinc/make --from ../armorcore -g direct3d11
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Build Executable
+      run: |
+        7z x armorcore/v8/libraries/win32/release/v8_monolith.7z -oarmorcore/v8/libraries/win32/release
+        cd armorpaint/build
+        msbuild ArmorPaint.sln /p:Configuration=Release /p:Platform=x64
+        cp x64/Release/ArmorPaint.exe krom
+
+    # Upload the build artifact to GitHub
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ArmorPaint
+        path: armorpaint/build/krom
