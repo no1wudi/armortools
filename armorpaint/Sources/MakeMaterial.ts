@@ -1,8 +1,8 @@
 
 class MakeMaterial {
 
-	static defaultScon: TShaderContext = null;
-	static defaultMcon: TMaterialContext = null;
+	static defaultScon: shader_context_t = null;
+	static defaultMcon: material_context_t = null;
 
 	static heightUsed = false;
 	static emisUsed = false;
@@ -57,36 +57,34 @@ class MakeMaterial {
 		}
 
 		let con = MakeMesh.run({ name: "Material", canvas: null });
-		let scon: TShaderContext;
-		ShaderContext.create(con.data, (_scon: TShaderContext) => { scon = _scon; });
-		scon._overrideContext = {};
+		let scon: shader_context_t = shader_context_create(con.data);
+		scon._override_context = {};
 		if (con.frag.sharedSamplers.length > 0) {
 			let sampler = con.frag.sharedSamplers[0];
-			scon._overrideContext.shared_sampler = sampler.substr(sampler.lastIndexOf(" ") + 1);
+			scon._override_context.shared_sampler = sampler.substr(sampler.lastIndexOf(" ") + 1);
 		}
 		if (!Context.raw.textureFilter) {
-			scon._overrideContext.filter = "point";
+			scon._override_context.filter = "point";
 		}
 		m._shader.contexts.push(scon);
 		m._shader._contexts.push(scon);
 
 		for (let i = 1; i < MakeMesh.layerPassCount; ++i) {
 			let con = MakeMesh.run({ name: "Material", canvas: null }, i);
-			let scon: TShaderContext;
-			ShaderContext.create(con.data, (_scon: TShaderContext) => { scon = _scon; });
-			scon._overrideContext = {};
+			let scon: shader_context_t = shader_context_create(con.data);
+			scon._override_context = {};
 			if (con.frag.sharedSamplers.length > 0) {
 				let sampler = con.frag.sharedSamplers[0];
-				scon._overrideContext.shared_sampler = sampler.substr(sampler.lastIndexOf(" ") + 1);
+				scon._override_context.shared_sampler = sampler.substr(sampler.lastIndexOf(" ") + 1);
 			}
 			if (!Context.raw.textureFilter) {
-				scon._overrideContext.filter = "point";
+				scon._override_context.filter = "point";
 			}
 			m._shader.contexts.push(scon);
 			m._shader._contexts.push(scon);
 
-			let mcon: TMaterialContext;
-			MaterialContext.create({ name: "mesh" + i, bind_textures: [] }, (self: TMaterialContext) => { mcon = self; });
+			let mcon: material_context_t;
+			mcon = material_context_create({ name: "mesh" + i, bind_textures: [] });
 			m.contexts.push(mcon);
 			m._contexts.push(mcon);
 		}
@@ -104,7 +102,7 @@ class MakeMaterial {
 
 	static parseParticleMaterial = () => {
 		let m = Context.raw.particleMaterial;
-		let sc: TShaderContext = null;
+		let sc: shader_context_t = null;
 		for (let c of m._shader._contexts) {
 			if (c.name == "mesh") {
 				sc = c;
@@ -117,16 +115,16 @@ class MakeMaterial {
 		}
 		let con = MakeParticle.run({ name: "MaterialParticle", canvas: null });
 		if (sc != null) MakeMaterial.deleteContext(sc);
-		ShaderContext.create(con.data, (_sc: TShaderContext) => { sc = _sc; });
+		sc = shader_context_create(con.data);
 		m._shader.contexts.push(sc);
 		m._shader._contexts.push(sc);
 	}
 
-	static parseMeshPreviewMaterial = (md: TMaterialData = null) => {
+	static parseMeshPreviewMaterial = (md: material_data_t = null) => {
 		if (!MakeMaterial.getMOut()) return;
 
 		let m = md == null ? Project.materials[0].data : md;
-		let scon: TShaderContext = null;
+		let scon: shader_context_t = null;
 		for (let c of m._shader._contexts) {
 			if (c.name == "mesh") {
 				scon = c;
@@ -137,14 +135,14 @@ class MakeMaterial {
 		array_remove(m._shader.contexts, scon);
 		array_remove(m._shader._contexts, scon);
 
-		let mcon: TMaterialContext = { name: "mesh", bind_textures: [] };
+		let mcon: material_context_t = { name: "mesh", bind_textures: [] };
 
 		let sd: TMaterial = { name: "Material", canvas: null };
 		let con = MakeMeshPreview.run(sd, mcon);
 
 		for (let i = 0; i < m._contexts.length; ++i) {
 			if (m._contexts[i].name == "mesh") {
-				MaterialContext.create(mcon, (self: TMaterialContext) => { m._contexts[i] = self; });
+				m._contexts[i] = material_context_create(mcon);
 				break;
 			}
 		}
@@ -152,10 +150,9 @@ class MakeMaterial {
 		if (scon != null) MakeMaterial.deleteContext(scon);
 
 		let compileError = false;
-		ShaderContext.create(con.data, (_scon: TShaderContext) => {
-			if (_scon == null) compileError = true;
-			scon = _scon;
-		});
+		let _scon: shader_context_t = shader_context_create(con.data);
+		if (_scon == null) compileError = true;
+		scon = _scon;
 		if (compileError) return;
 
 		m._shader.contexts.push(scon);
@@ -163,10 +160,10 @@ class MakeMaterial {
 	}
 
 	///if arm_voxels
-	static makeVoxel = (m: TMaterialData) => {
+	static makeVoxel = (m: material_data_t) => {
 		let rebuild = MakeMaterial.heightUsed;
 		if (Config.raw.rp_gi != false && rebuild) {
-			let scon: TShaderContext = null;
+			let scon: shader_context_t = null;
 			for (let c of m._shader._contexts) {
 				if (c.name == "voxel") {
 					scon = c;
@@ -182,10 +179,10 @@ class MakeMaterial {
 		if (!MakeMaterial.getMOut()) return;
 
 		if (bakePreviews) {
-			let current = Graphics2.current;
-			if (current != null) current.end();
+			let current = _g2_current;
+			if (current != null) g2_end();
 			MakeMaterial.bakeNodePreviews();
-			if (current != null) current.begin(false);
+			if (current != null) g2_begin(current, false);
 		}
 
 		let m = Project.materials[0].data;
@@ -208,20 +205,18 @@ class MakeMaterial {
 		}
 
 		let sdata: TMaterial = { name: "Material", canvas: UINodes.getCanvasMaterial() };
-		let tmcon: TMaterialContext = { name: "paint", bind_textures: [] };
+		let tmcon: material_context_t = { name: "paint", bind_textures: [] };
 		let con = MakePaint.run(sdata, tmcon);
 
 		let compileError = false;
-		let scon: TShaderContext;
-		ShaderContext.create(con.data, (_scon: TShaderContext) => {
-			if (_scon == null) compileError = true;
-			scon = _scon;
-		});
+		let scon: shader_context_t;
+		let _scon: shader_context_t = shader_context_create(con.data);
+		if (_scon == null) compileError = true;
+		scon = _scon;
 		if (compileError) return;
-		scon._overrideContext = {};
-		scon._overrideContext.addressing = "repeat";
-		let mcon: TMaterialContext;
-		MaterialContext.create(tmcon, (_mcon: TMaterialContext) => { mcon = _mcon; });
+		scon._override_context = {};
+		scon._override_context.addressing = "repeat";
+		let mcon: material_context_t = material_context_create(tmcon);
 
 		m._shader.contexts.push(scon);
 		m._shader._contexts.push(scon);
@@ -239,13 +234,13 @@ class MakeMaterial {
 		for (let key of Context.raw.nodePreviews.keys()) {
 			if (Context.raw.nodePreviewsUsed.indexOf(key) == -1) {
 				let image = Context.raw.nodePreviews.get(key);
-				Base.notifyOnNextFrame(image.unload);
+				Base.notifyOnNextFrame(function() { image_unload(image); });
 				Context.raw.nodePreviews.delete(key);
 			}
 		}
 	}
 
-	static traverseNodes = (nodes: TNode[], group: TNodeCanvas, parents: TNode[]) => {
+	static traverseNodes = (nodes: zui_node_t[], group: zui_node_canvas_t, parents: zui_node_t[]) => {
 		for (let node of nodes) {
 			MakeMaterial.bakeNodePreview(node, group, parents);
 			if (node.type == "GROUP") {
@@ -261,7 +256,7 @@ class MakeMaterial {
 		}
 	}
 
-	static bakeNodePreview = (node: TNode, group: TNodeCanvas, parents: TNode[]) => {
+	static bakeNodePreview = (node: zui_node_t, group: zui_node_canvas_t, parents: zui_node_t[]) => {
 		if (node.type == "BLUR") {
 			let id = ParserMaterial.node_name(node, parents);
 			let image = Context.raw.nodePreviews.get(id);
@@ -269,8 +264,8 @@ class MakeMaterial {
 			let resX = Math.floor(Config.getTextureResX() / 4);
 			let resY = Math.floor(Config.getTextureResY() / 4);
 			if (image == null || image.width != resX || image.height != resY) {
-				if (image != null) image.unload();
-				image = Image.createRenderTarget(resX, resY);
+				if (image != null) image_unload(image);
+				image = image_create_render_target(resX, resY);
 				Context.raw.nodePreviews.set(id, image);
 			}
 
@@ -285,8 +280,8 @@ class MakeMaterial {
 			let resX = Math.floor(Config.getTextureResX());
 			let resY = Math.floor(Config.getTextureResY());
 			if (image == null || image.width != resX || image.height != resY) {
-				if (image != null) image.unload();
-				image = Image.createRenderTarget(resX, resY);
+				if (image != null) image_unload(image);
+				image = image_create_render_target(resX, resY);
 				Context.raw.nodePreviews.set(id, image);
 			}
 
@@ -301,8 +296,8 @@ class MakeMaterial {
 			let resX = Math.floor(Config.getTextureResX());
 			let resY = Math.floor(Config.getTextureResY());
 			if (image == null || image.width != resX || image.height != resY) {
-				if (image != null) image.unload();
-				image = Image.createRenderTarget(resX, resY, TextureFormat.R8);
+				if (image != null) image_unload(image);
+				image = image_create_render_target(resX, resY, tex_format_t.R8);
 				Context.raw.nodePreviews.set(id, image);
 			}
 
@@ -338,29 +333,27 @@ class MakeMaterial {
 			Context.raw.bakeType = _bakeType;
 			MakeMaterial.parsePaintMaterial(false);
 
-			let rts = RenderPath.renderTargets;
+			let rts = render_path_render_targets;
 			let texpaint_live = rts.get("texpaint_live");
 
-			image.g2.begin(false);
-			image.g2.drawImage(texpaint_live.image, 0, 0);
-			image.g2.end();
+			g2_begin(image, false);
+			g2_draw_image(texpaint_live.image, 0, 0);
+			g2_end();
 		}
 	}
 
-	static parseNodePreviewMaterial = (node: TNode, group: TNodeCanvas = null, parents: TNode[] = null): { scon: TShaderContext, mcon: TMaterialContext } => {
+	static parseNodePreviewMaterial = (node: zui_node_t, group: zui_node_canvas_t = null, parents: zui_node_t[] = null): { scon: shader_context_t, mcon: material_context_t } => {
 		if (node.outputs.length == 0) return null;
 		let sdata: TMaterial = { name: "Material", canvas: UINodes.getCanvasMaterial() };
-		let mcon_raw: TMaterialContext = { name: "mesh", bind_textures: [] };
+		let mcon_raw: material_context_t = { name: "mesh", bind_textures: [] };
 		let con = MakeNodePreview.run(sdata, mcon_raw, node, group, parents);
 		let compileError = false;
-		let scon: TShaderContext;
-		ShaderContext.create(con.data, (_scon: TShaderContext) => {
-			if (_scon == null) compileError = true;
-			scon = _scon;
-		});
+		let scon: shader_context_t;
+		let _scon: shader_context_t = shader_context_create(con.data);
+		if (_scon == null) compileError = true;
+		scon = _scon;
 		if (compileError) return null;
-		let mcon: TMaterialContext;
-		MaterialContext.create(mcon_raw, (_mcon: TMaterialContext) => { mcon = _mcon; });
+		let mcon: material_context_t = material_context_create(mcon_raw);
 		return { scon: scon, mcon: mcon };
 	}
 
@@ -491,9 +484,9 @@ class MakeMaterial {
 		return `const vec3 voxelgiHalfExtents = vec3(${ext}, ${ext}, ${ext});`;
 	}
 
-	static deleteContext = (c: TShaderContext) => {
+	static deleteContext = (c: shader_context_t) => {
 		Base.notifyOnNextFrame(() => { // Ensure pipeline is no longer in use
-			ShaderContext.delete(c);
+			shader_context_delete(c);
 		});
 	}
 }

@@ -2,40 +2,40 @@
 class VectorMathNode extends LogicNode {
 
 	operation: string;
-	v = new Vec4();
+	v = vec4_create();
 
 	constructor() {
 		super();
 	}
 
 	override get = (from: i32, done: (a: any)=>void) => {
-		this.inputs[0].get((v1: Vec4) => {
-			this.inputs[1].get((v2: Vec4) => {
-				this.v.setFrom(v1);
+		this.inputs[0].get((v1: vec4_t) => {
+			this.inputs[1].get((v2: vec4_t) => {
+				vec4_set_from(this.v, v1);
 				let f = 0.0;
 
 				switch (this.operation) {
 					case "Add":
-						this.v.add(v2);
+						vec4_add(this.v, v2);
 						break;
 					case "Subtract":
-						this.v.sub(v2);
+						vec4_sub(this.v, v2);
 						break;
 					case "Average":
-						this.v.add(v2);
+						vec4_add(this.v, v2);
 						this.v.x *= 0.5;
 						this.v.y *= 0.5;
 						this.v.z *= 0.5;
 						break;
 					case "Dot Product":
-						f = this.v.dot(v2);
-						this.v.set(f, f, f);
+						f = vec4_dot(this.v, v2);
+						vec4_set(this.v, f, f, f);
 						break;
 					case "Cross Product":
-						this.v.cross(v2);
+						vec4_cross(this.v, v2);
 						break;
 					case "Normalize":
-						this.v.normalize();
+						vec4_normalize(this.v, );
 						break;
 					case "Multiply":
 						this.v.x *= v2.x;
@@ -48,22 +48,22 @@ class VectorMathNode extends LogicNode {
 						this.v.z /= v2.z == 0.0 ? 0.000001 : v2.z;
 						break;
 					case "Length":
-						f = this.v.length();
-						this.v.set(f, f, f);
+						f = vec4_len(this.v);
+						vec4_set(this.v, f, f, f);
 						break;
 					case "Distance":
-						f = this.v.distanceTo(v2);
-						this.v.set(f, f, f);
+						f = vec4_dist_to(this.v, v2);
+						vec4_set(this.v, f, f, f);
 						break;
 					case "Project":
-						this.v.setFrom(v2);
-						this.v.mult(v1.dot(v2) / v2.dot(v2));
+						vec4_set_from(this.v, v2);
+						vec4_mult(this.v, vec4_dot(v1, v2) / vec4_dot(v2, v2));
 						break;
 					case "Reflect":
-						let tmp = new Vec4();
-						tmp.setFrom(v2);
-						tmp.normalize();
-						this.v.reflect(tmp);
+						let tmp = vec4_create();
+						vec4_set_from(tmp, v2);
+						vec4_normalize(tmp);
+						vec4_reflect(this.v, tmp);
 						break;
 					case "Scale":
 						this.v.x *= v2.x;
@@ -133,7 +133,7 @@ class VectorMathNode extends LogicNode {
 		});
 	}
 
-	static def: TNode = {
+	static def: zui_node_t = {
 		id: 0,
 		name: _tr("Vector Math"),
 		type: "VectorMathNode",

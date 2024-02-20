@@ -3,7 +3,7 @@ class UtilMesh {
 
 	static unwrappers: Map<string, ((a: any)=>void)> = new Map();
 
-	static mergeMesh = (paintObjects: MeshObject[] = null) => {
+	static mergeMesh = (paintObjects: mesh_object_t[] = null) => {
 		if (paintObjects == null) paintObjects = Project.paintObjects;
 		if (paintObjects.length == 0) return;
 		Context.raw.mergedObjectIsAtlas = paintObjects.length < Project.paintObjects.length;
@@ -35,9 +35,9 @@ class UtilMesh {
 			// Translate
 			///if is_forge
 			for (let j = 0; j < Math.floor(va0.length / 4); ++j) {
-				va0[j * 4     + voff * 4] += Math.floor(paintObjects[i].base.transform.worldx() * 32767);
-				va0[j * 4 + 1 + voff * 4] += Math.floor(paintObjects[i].base.transform.worldy() * 32767);
-				va0[j * 4 + 2 + voff * 4] += Math.floor(paintObjects[i].base.transform.worldz() * 32767);
+				va0[j * 4     + voff * 4] += Math.floor(transform_world_x(paintObjects[i].base.transform) * 32767);
+				va0[j * 4 + 1 + voff * 4] += Math.floor(transform_world_y(paintObjects[i].base.transform) * 32767);
+				va0[j * 4 + 2 + voff * 4] += Math.floor(transform_world_z(paintObjects[i].base.transform) * 32767);
 			}
 			///end
 
@@ -60,7 +60,7 @@ class UtilMesh {
 			ioff += Math.floor(ias[0].values.length);
 		}
 
-		let raw: TMeshData = {
+		let raw: mesh_data_t = {
 			name: Context.raw.paintObject.base.name,
 			vertex_arrays: [
 				{ values: va0, attrib: "pos", data: "short4norm" },
@@ -76,12 +76,11 @@ class UtilMesh {
 		if (va3 != null) raw.vertex_arrays.push({ values: va3, attrib: "col", data: "short4norm", padding: 1 });
 
 		UtilMesh.removeMergedMesh();
-		MeshData.create(raw, (md: TMeshData) => {
-			Context.raw.mergedObject = new MeshObject(md, Context.raw.paintObject.materials);
-			Context.raw.mergedObject.base.name = Context.raw.paintObject.base.name + "_merged";
-			Context.raw.mergedObject.force_context = "paint";
-			Context.raw.mergedObject.base.setParent(Context.mainObject().base);
-		});
+		let md: mesh_data_t = mesh_data_create(raw);
+		Context.raw.mergedObject = mesh_object_create(md, Context.raw.paintObject.materials);
+		Context.raw.mergedObject.base.name = Context.raw.paintObject.base.name + "_merged";
+		Context.raw.mergedObject.force_context = "paint";
+		object_set_parent(Context.raw.mergedObject.base, Context.mainObject().base);
 
 		///if (krom_direct3d12 || krom_vulkan || krom_metal)
 		RenderPathRaytrace.ready = false;
@@ -90,8 +89,8 @@ class UtilMesh {
 
 	static removeMergedMesh = () => {
 		if (Context.raw.mergedObject != null) {
-			MeshData.delete(Context.raw.mergedObject.data);
-			Context.raw.mergedObject.remove();
+			mesh_data_delete(Context.raw.mergedObject.data);
+			mesh_object_remove(Context.raw.mergedObject);
 			Context.raw.mergedObject = null;
 		}
 	}
@@ -120,8 +119,8 @@ class UtilMesh {
 			}
 
 			let g = o.data;
-			let l = g._struct.byteSize() / 2;
-			let vertices = g._vertexBuffer.lock(); // posnortex
+			let l = g4_vertex_struct_byte_size(g._struct) / 2;
+			let vertices = g4_vertex_buffer_lock(g._vertex_buffer); // posnortex
 			for (let i = 0; i < Math.floor(vertices.byteLength / 2 / l); ++i) {
 				vertices.setInt16((i * l    ) * 2, vas[0].values[i * 4    ], true);
 				vertices.setInt16((i * l + 1) * 2, vas[0].values[i * 4 + 1], true);
@@ -130,7 +129,7 @@ class UtilMesh {
 				vertices.setInt16((i * l + 4) * 2, vas[1].values[i * 2    ], true);
 				vertices.setInt16((i * l + 5) * 2, vas[1].values[i * 2 + 1], true);
 			}
-			g._vertexBuffer.unlock();
+			g4_vertex_buffer_unlock(g._vertex_buffer);
 		}
 
 		UtilMesh.removeMergedMesh();
@@ -144,8 +143,8 @@ class UtilMesh {
 			let va0 = vas[0].values;
 			let va1 = vas[1].values;
 			let g = o.data;
-			let l = g._struct.byteSize() / 2;
-			let vertices = g._vertexBuffer.lock(); // posnortex
+			let l = g4_vertex_struct_byte_size(g._struct) / 2;
+			let vertices = g4_vertex_buffer_lock(g._vertex_buffer); // posnortex
 			for (let i = 0; i < Math.floor(vertices.byteLength / 2 / l); ++i) {
 				va0[i * 4 + 3] = -va0[i * 4 + 3];
 				va1[i * 2] = -va1[i * 2];
@@ -154,7 +153,7 @@ class UtilMesh {
 				vertices.setInt16((i * l + 4) * 2, -vertices.getInt16((i * l + 4) * 2, true), true);
 				vertices.setInt16((i * l + 5) * 2, -vertices.getInt16((i * l + 5) * 2, true), true);
 			}
-			g._vertexBuffer.unlock();
+			g4_vertex_buffer_unlock(g._vertex_buffer);
 		}
 
 		///if (krom_direct3d12 || krom_vulkan || krom_metal)
@@ -163,28 +162,28 @@ class UtilMesh {
 	}
 
 	static calcNormals = (smooth = false) => {
-		let va = new Vec4();
-		let vb = new Vec4();
-		let vc = new Vec4();
-		let cb = new Vec4();
-		let ab = new Vec4();
+		let va = vec4_create();
+		let vb = vec4_create();
+		let vc = vec4_create();
+		let cb = vec4_create();
+		let ab = vec4_create();
 		let objects = Project.paintObjects;
 		for (let o of objects) {
 			let g = o.data;
-			let l = g._struct.byteSize() / 2;
+			let l = g4_vertex_struct_byte_size(g._struct) / 2;
 			let inda = g._indices[0];
-			let vertices = g._vertexBuffer.lock(); // posnortex
+			let vertices = g4_vertex_buffer_lock(g._vertex_buffer); // posnortex
 			for (let i = 0; i < Math.floor(inda.length / 3); ++i) {
 				let i1 = inda[i * 3    ];
 				let i2 = inda[i * 3 + 1];
 				let i3 = inda[i * 3 + 2];
-				va.set(vertices.getInt16((i1 * l) * 2, true), vertices.getInt16((i1 * l + 1) * 2, true), vertices.getInt16((i1 * l + 2) * 2, true));
-				vb.set(vertices.getInt16((i2 * l) * 2, true), vertices.getInt16((i2 * l + 1) * 2, true), vertices.getInt16((i2 * l + 2) * 2, true));
-				vc.set(vertices.getInt16((i3 * l) * 2, true), vertices.getInt16((i3 * l + 1) * 2, true), vertices.getInt16((i3 * l + 2) * 2, true));
-				cb.subvecs(vc, vb);
-				ab.subvecs(va, vb);
-				cb.cross(ab);
-				cb.normalize();
+				vec4_set(va, vertices.getInt16((i1 * l) * 2, true), vertices.getInt16((i1 * l + 1) * 2, true), vertices.getInt16((i1 * l + 2) * 2, true));
+				vec4_set(vb, vertices.getInt16((i2 * l) * 2, true), vertices.getInt16((i2 * l + 1) * 2, true), vertices.getInt16((i2 * l + 2) * 2, true));
+				vec4_set(vc, vertices.getInt16((i3 * l) * 2, true), vertices.getInt16((i3 * l + 1) * 2, true), vertices.getInt16((i3 * l + 2) * 2, true));
+				vec4_sub_vecs(cb, vc, vb);
+				vec4_sub_vecs(ab, va, vb);
+				vec4_cross(cb, ab);
+				vec4_normalize(cb, );
 				vertices.setInt16((i1 * l + 4) * 2, Math.floor(cb.x * 32767), true);
 				vertices.setInt16((i1 * l + 5) * 2, Math.floor(cb.y * 32767), true);
 				vertices.setInt16((i1 * l + 3) * 2, Math.floor(cb.z * 32767), true);
@@ -219,14 +218,14 @@ class UtilMesh {
 						}
 					}
 					if (sharedLen > 1) {
-						va.set(0, 0, 0);
+						vec4_set(va, 0, 0, 0);
 						for (let j = 0; j < sharedLen; ++j) {
 							let i1 = shared[j];
 							let i1l = i1 * l;
-							va.addf(vertices.getInt16((i1l + 4) * 2, true), vertices.getInt16((i1l + 5) * 2, true), vertices.getInt16((i1l + 3) * 2, true));
+							vec4_add_f(va, vertices.getInt16((i1l + 4) * 2, true), vertices.getInt16((i1l + 5) * 2, true), vertices.getInt16((i1l + 3) * 2, true));
 						}
-						va.mult(1 / sharedLen);
-						va.normalize();
+						vec4_mult(va, 1 / sharedLen);
+						vec4_normalize(va, );
 						let vax = Math.floor(va.x * 32767);
 						let vay = Math.floor(va.y * 32767);
 						let vaz = Math.floor(va.z * 32767);
@@ -240,7 +239,7 @@ class UtilMesh {
 					}
 				}
 			}
-			g._vertexBuffer.unlock();
+			g4_vertex_buffer_unlock(g._vertex_buffer);
 
 			let va0 = o.data.vertex_arrays[0].values;
 			let va1 = o.data.vertex_arrays[1].values;
@@ -297,8 +296,8 @@ class UtilMesh {
 				if (Math.abs(va[i * 4 + 1] * sc - dy) > maxScale) maxScale = Math.abs(va[i * 4 + 1] * sc - dy);
 				if (Math.abs(va[i * 4 + 2] * sc - dz) > maxScale) maxScale = Math.abs(va[i * 4 + 2] * sc - dz);
 			}
-			o.base.transform.scaleWorld = o.data.scale_pos = o.data.scale_pos = maxScale;
-			o.base.transform.buildMatrix();
+			o.base.transform.scale_world = o.data.scale_pos = o.data.scale_pos = maxScale;
+			transform_build_matrix(o.base.transform);
 
 			for (let i = 0; i < Math.floor(va.length / 4); ++i) {
 				va[i * 4    ] = Math.floor((va[i * 4    ] * sc - dx) / maxScale * 32767);
@@ -306,27 +305,27 @@ class UtilMesh {
 				va[i * 4 + 2] = Math.floor((va[i * 4 + 2] * sc - dz) / maxScale * 32767);
 			}
 
-			let l = g._struct.byteSize() / 2;
-			let vertices = g._vertexBuffer.lock(); // posnortex
+			let l = g4_vertex_struct_byte_size(g._struct) / 2;
+			let vertices = g4_vertex_buffer_lock(g._vertex_buffer); // posnortex
 			for (let i = 0; i < Math.floor(vertices.byteLength / 2 / l); ++i) {
 				vertices.setInt16((i * l    ) * 2, va[i * 4    ], true);
 				vertices.setInt16((i * l + 1) * 2, va[i * 4 + 1], true);
 				vertices.setInt16((i * l + 2) * 2, va[i * 4 + 2], true);
 			}
-			g._vertexBuffer.unlock();
+			g4_vertex_buffer_unlock(g._vertex_buffer);
 		}
 
 		UtilMesh.mergeMesh();
 	}
 
-	static applyDisplacement = (texpaint_pack: Image, strength = 0.1, uvScale = 1.0) => {
-		let height = texpaint_pack.getPixels();
+	static applyDisplacement = (texpaint_pack: image_t, strength = 0.1, uvScale = 1.0) => {
+		let height = image_get_pixels(texpaint_pack);
 		let heightView = new DataView(height);
 		let res = texpaint_pack.width;
 		let o = Project.paintObjects[0];
 		let g = o.data;
-		let l = g._struct.byteSize() / 2;
-		let vertices = g._vertexBuffer.lock(); // posnortex
+		let l = g4_vertex_struct_byte_size(g._struct) / 2;
+		let vertices = g4_vertex_buffer_lock(g._vertex_buffer); // posnortex
 		for (let i = 0; i < Math.floor(vertices.byteLength / 2 / l); ++i) {
 			let x = Math.floor(vertices.getInt16((i * l + 6) * 2, true) / 32767 * res);
 			let y = Math.floor(vertices.getInt16((i * l + 7) * 2, true) / 32767 * res);
@@ -337,7 +336,7 @@ class UtilMesh {
 			vertices.setInt16((i * l + 1) * 2, vertices.getInt16((i * l + 1) * 2, true) - Math.floor(vertices.getInt16((i * l + 5) * 2, true) * h), true);
 			vertices.setInt16((i * l + 2) * 2, vertices.getInt16((i * l + 2) * 2, true) - Math.floor(vertices.getInt16((i * l + 3) * 2, true) * h), true);
 		}
-		g._vertexBuffer.unlock();
+		g4_vertex_buffer_unlock(g._vertex_buffer);
 
 		let va0 = o.data.vertex_arrays[0].values;
 		for (let i = 0; i < Math.floor(vertices.byteLength / 4 / l); ++i) {
@@ -350,9 +349,9 @@ class UtilMesh {
 	static equirectUnwrap = (mesh: any) => {
 		let verts = Math.floor(mesh.posa.length / 4);
 		mesh.texa = new Int16Array(verts * 2);
-		let n = new Vec4();
+		let n = vec4_create();
 		for (let i = 0; i < verts; ++i) {
-			n.set(mesh.posa[i * 4] / 32767, mesh.posa[i * 4 + 1] / 32767, mesh.posa[i * 4 + 2] / 32767).normalize();
+			vec4_normalize(vec4_set(n, mesh.posa[i * 4] / 32767, mesh.posa[i * 4 + 1] / 32767, mesh.posa[i * 4 + 2] / 32767));
 			// Sphere projection
 			// mesh.texa[i * 2    ] = Math.atan2(n.x, n.y) / (Math.PI * 2) + 0.5;
 			// mesh.texa[i * 2 + 1] = n.z * 0.5 + 0.5;
@@ -371,11 +370,11 @@ class UtilMesh {
 		return c;
 	}
 
-	static calcNormal = (p0: Vec4, p1: Vec4, p2: Vec4): Vec4 => {
-		let cb = new Vec4().subvecs(p2, p1);
-		let ab = new Vec4().subvecs(p0, p1);
-		cb.cross(ab);
-		cb.normalize();
+	static calcNormal = (p0: vec4_t, p1: vec4_t, p2: vec4_t): vec4_t => {
+		let cb = vec4_sub_vecs(vec4_create(), p2, p1);
+		let ab = vec4_sub_vecs(vec4_create(), p0, p1);
+		vec4_cross(cb, ab);
+		vec4_normalize(cb);
 		return cb;
 	}
 }
